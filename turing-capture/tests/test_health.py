@@ -3,12 +3,13 @@ TuringCapture Health Endpoint Tests
 Bank-grade test suite for CI/CD pipeline
 """
 
-from fastapi.testclient import TestClient
-import sys
 import os
+import sys
+
+from fastapi.testclient import TestClient
 
 # Add parent directory to path to import app
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from main import app
 
@@ -54,6 +55,7 @@ def test_health_endpoint_includes_version():
 def test_health_endpoint_response_time():
     """Test that health endpoint responds quickly (< 1 second)"""
     import time
+
     start = time.time()
     response = client.get("/health")
     duration = time.time() - start

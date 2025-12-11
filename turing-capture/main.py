@@ -3,17 +3,17 @@ TuringCapture™ - FastAPI Application
 Bank-grade identity verification and document capture platform
 """
 
+import logging
+from datetime import datetime
+from typing import Any, Dict, Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
-import logging
-from datetime import datetime
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ app = FastAPI(
     version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
 )
 
 # CORS middleware
@@ -84,7 +84,7 @@ async def root():
         "version": "2.0.0",
         "status": "operational",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
     }
 
 
@@ -100,7 +100,7 @@ async def health_check():
         service="turing-capture",
         version="2.0.0",
         timestamp=datetime.utcnow().isoformat(),
-        uptime="operational"
+        uptime="operational",
     )
 
 
@@ -113,11 +113,7 @@ async def readiness_check():
     """
     return {
         "ready": True,
-        "checks": {
-            "database": "ok",
-            "storage": "ok",
-            "external_services": "ok"
-        }
+        "checks": {"database": "ok", "storage": "ok", "external_services": "ok"},
     }
 
 
@@ -136,20 +132,22 @@ async def liveness_check():
 async def create_capture(request: CaptureRequest):
     """
     Create a new identity capture session
-    
+
     This endpoint initiates an identity verification and document capture session.
     """
     logger.info(f"Creating capture session for user: {request.user_id}")
-    
+
     # Generate capture ID
-    capture_id = f"cap_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{request.user_id[:8]}"
-    
+    capture_id = (
+        f"cap_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{request.user_id[:8]}"
+    )
+
     return CaptureResponse(
         capture_id=capture_id,
         status="initiated",
         user_id=request.user_id,
         timestamp=datetime.utcnow().isoformat(),
-        verification_url=f"/v1/capture/{capture_id}/verify"
+        verification_url=f"/v1/capture/{capture_id}/verify",
     )
 
 
@@ -159,13 +157,13 @@ async def get_capture_status(capture_id: str):
     Get the status of a capture session
     """
     logger.info(f"Fetching capture status for: {capture_id}")
-    
+
     return {
         "capture_id": capture_id,
         "status": "pending",
         "created_at": datetime.utcnow().isoformat(),
         "steps_completed": 0,
-        "steps_total": 3
+        "steps_total": 3,
     }
 
 
@@ -175,12 +173,12 @@ async def upload_document(capture_id: str):
     Upload a document for verification
     """
     logger.info(f"Document upload for capture: {capture_id}")
-    
+
     return {
         "capture_id": capture_id,
         "document_id": f"doc_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
         "status": "uploaded",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 
@@ -190,12 +188,12 @@ async def upload_biometric(capture_id: str):
     Upload biometric data for verification
     """
     logger.info(f"Biometric upload for capture: {capture_id}")
-    
+
     return {
         "capture_id": capture_id,
         "biometric_id": f"bio_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
         "status": "uploaded",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 
@@ -205,12 +203,12 @@ async def verify_capture(capture_id: str):
     Verify the captured identity data
     """
     logger.info(f"Verifying capture: {capture_id}")
-    
+
     return {
         "capture_id": capture_id,
         "verification_status": "verified",
         "confidence_score": 0.95,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 
@@ -225,10 +223,11 @@ async def metrics():
         "requests_total": 0,
         "requests_success": 0,
         "requests_failed": 0,
-        "avg_response_time_ms": 0
+        "avg_response_time_ms": 0,
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8101)
