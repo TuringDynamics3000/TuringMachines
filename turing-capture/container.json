@@ -1,0 +1,33 @@
+﻿[
+  {
+    "name": "turing-capture",
+    "image": "961971040149.dkr.ecr.ap-southeast-2.amazonaws.com/turing-capture:latest",
+    "essential": true,
+    "portMappings": [
+      {
+        "containerPort": 8101,
+        "hostPort": 8101,
+        "protocol": "tcp"
+      }
+    ],
+    "healthCheck": {
+      "command": ["CMD-SHELL", "wget -qO- http://localhost:8101/health || exit 1"],
+      "interval": 15,
+      "timeout": 5,
+      "retries": 3,
+      "startPeriod": 10
+    },
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-create-group": "true",
+        "awslogs-group": "/ecs/turing-capture",
+        "awslogs-region": "ap-southeast-2",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
+    "linuxParameters": {
+      "initProcessEnabled": true
+    }
+  }
+]

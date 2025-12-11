@@ -1,0 +1,32 @@
+[
+  {
+    "name": "turing-capture",
+    "image": "961971040149.dkr.ecr.ap-southeast-2.amazonaws.com/turing-capture:latest",
+    "essential": true,
+    "environment": [
+      {
+        "name": "DATABASE_URL",
+        "value": "postgresql+asyncpg://postgres:TuringCapture123!@turingcapture-aurora.cluster-cvyyew6ce7us.ap-southeast-2.rds.amazonaws.com:5432/postgres"
+      }
+    ],
+    "portMappings": [
+      {
+        "containerPort": 8000,
+        "hostPort": 8000,
+        "protocol": "tcp"
+      }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-create-group": "true",
+        "awslogs-group": "/ecs/turing-capture",
+        "awslogs-region": "ap-southeast-2",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
+    "linuxParameters": {
+      "initProcessEnabled": true
+    }
+  }
+]

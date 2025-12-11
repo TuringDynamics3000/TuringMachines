@@ -1,0 +1,50 @@
+﻿{
+    "family":  "turing-orchestrate",
+    "taskRoleArn":  "arn:aws:iam::/ecsTaskExecutionRole",
+    "executionRoleArn":  "arn:aws:iam::/ecsTaskExecutionRole",
+    "networkMode":  "awsvpc",
+    "containerDefinitions":  [
+                                 {
+                                     "name":  "turing-orchestrate",
+                                     "image":  "961971040149.dkr.ecr.ap-southeast-2.amazonaws.com/turing-orchestrate:latest",
+                                     "essential":  true,
+                                     "portMappings":  [
+                                                          {
+                                                              "containerPort":  8010,
+                                                              "protocol":  "tcp"
+                                                          }
+                                                      ],
+                                     "logConfiguration":  {
+                                                              "logDriver":  "awslogs",
+                                                              "options":  {
+                                                                              "awslogs-group":  "/ecs/turing-orchestrate",
+                                                                              "awslogs-region":  "ap-southeast-2",
+                                                                              "awslogs-stream-prefix":  "ecs"
+                                                                          }
+                                                          },
+                                     "environment":  [
+                                                         {
+                                                             "name":  "DB_HOST",
+                                                             "value":  "turingmachines-dev-postgres.cvyyew6ce7us.ap-southeast-2.rds.amazonaws.com"
+                                                         },
+                                                         {
+                                                             "name":  "DB_NAME",
+                                                             "value":  "turingdb"
+                                                         },
+                                                         {
+                                                             "name":  "SECRET_NAME",
+                                                             "value":  "turingmachines-dev/postgres"
+                                                         }
+                                                     ]
+                                 }
+                             ],
+    "requiresCompatibilities":  [
+                                    "FARGATE"
+                                ],
+    "cpu":  256,
+    "memory":  512,
+    "runtimePlatform":  {
+                            "operatingSystemFamily":  "LINUX",
+                            "cpuArchitecture":  "X86_64"
+                        }
+}

@@ -1,0 +1,41 @@
+﻿{
+  "family": "turing-capture",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+
+  "executionRoleArn": "arn:aws:iam::961971040149:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::961971040149:role/ecsTaskExecutionRole",
+
+  "containerDefinitions": [
+    {
+      "name": "turing-capture",
+      "image": "961971040149.dkr.ecr.ap-southeast-2.amazonaws.com/turing-capture:latest",
+      "essential": true,
+
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-create-group": "true",
+          "awslogs-group": "/ecs/turing-capture",
+          "awslogs-region": "ap-southeast-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+
+      "linuxParameters": {
+        "initProcessEnabled": true
+      }
+    }
+  ]
+}
+
