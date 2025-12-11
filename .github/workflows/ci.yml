@@ -1,0 +1,75 @@
+name: TuringCapture CI
+
+on:
+  push:
+    branches: ["main", "dev"]
+  pull_request:
+    branches: ["main", "dev"]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          cd turing-capture && pip install -r requirements.txt
+          pip install pytest flake8 black isort mypy
+
+      - name: Run tests
+        run: |
+          cd turing-capture && pytest -v
+
+      - name: Lint with flake8
+        run: |
+          cd turing-capture && flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+          cd turing-capture && flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics || true
+
+      - name: Check code formatting with black
+        run: |
+          cd turing-capture && black --check . || true
+
+      - name: Check import sorting with isort
+        run: |
+          cd turing-capture && isort --check-only . || true
+
+      - name: Type check with mypy
+        run: |
+          cd turing-capture && mypy . --ignore-missing-imports || true
+
+      - name: Build Docker image
+        run: |
+          cd turing-capture && docker build -t turing-capture:ci .
+
+      - name: Test Docker image
+        run: |
+          docker run --rm -d -p 8101:8101 --name turing-capture-test turing-capture:ci
+          sleep 5
+          curl -f http://localhost:8101/health || exit 1
+          docker stop turing-capture-test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: turing-capture/test-results/
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: turing-capture/htmlcov/
