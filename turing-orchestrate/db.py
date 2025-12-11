@@ -1,54 +1,48 @@
-"""
-TuringOrchestrate™ Database Configuration
-==========================================
-
-Async SQLAlchemy database setup for workflow persistence.
-"""
+# turing-orchestrate/db.py
 
 import os
-from contextlib import asynccontextmanager
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from typing import AsyncGenerator
 
-from models import Base
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    create_async_engine,
+    async_sessionmaker,
+)
+from sqlalchemy.orm import DeclarativeBase
 
-# Database configuration
+
+class Base(DeclarativeBase):
+    pass
+
+
 DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://postgres@localhost:5432/turingorchestrate"
+    "ORCHESTRATE_DATABASE_URL",
+    "postgresql+asyncpg://postgres@localhost:5432/turing_orchestrate",
 )
 
-# Create async engine
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    pool_size=10,
-    max_overflow=20,
+    future=True,
 )
 
-# Session factory
-AsyncSessionLocal = async_sessionmaker(
+async_session = async_sessionmaker(
     engine,
-    class_=AsyncSession,
     expire_on_commit=False,
+    class_=AsyncSession,
 )
 
 
-@asynccontextmanager
-async def get_session():
-    """Get database session context manager."""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session() as session:
+        yield session
 
 
 async def init_db():
-    """Initialize database tables."""
+    """Create tables if they don't exist. In prod use Alembic."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 
 async def close_db():
-    """Close database connections."""
     await engine.dispose()

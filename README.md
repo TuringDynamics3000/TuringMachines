@@ -410,3 +410,91 @@ Proprietary - All Rights Reserved
 #   T u r i n g M a c h i n e s   C I / C D   A c t i v e  
  
 # CI/CD Pipeline Test - 2025-12-11 13:44:44
+
+
+# TuringMachines Local Setup Guide
+
+This guide provides instructions for setting up and testing the TuringMachines services (`TuringCapture` and `TuringOrchestrate`) on your local machine using PowerShell and a local PostgreSQL instance.
+
+## 1. Prerequisites
+
+Before you begin, ensure you have the following installed and configured:
+
+- **PowerShell:** Version 5.1 or later.
+- **Python:** Version 3.11 or later, with `pip` and `venv` available in your PATH.
+- **PostgreSQL:** A local PostgreSQL instance running and accessible. The `psql` command-line tool must be available in your PATH.
+- **pgvector:** The `pgvector` extension must be installed in your PostgreSQL instance. You can find installation instructions at [https://github.com/pgvector/pgvector](https://github.com/pgvector/pgvector).
+
+## 2. Project Structure
+
+Ensure your project has the following directory structure:
+
+```
+/turingmachines
+├── turing-capture/
+│   ├── main.py
+│   ├── biometrics.py
+│   └── ...
+├── turing-orchestrate/
+│   ├── main.py
+│   ├── workflow_service.py
+│   └── ...
+└── setup-and-test.ps1
+```
+
+## 3. The Setup & Test Script
+
+A single PowerShell script, `setup-and-test.ps1`, automates the entire setup and testing process. You can simply copy and paste its contents into a PowerShell terminal at the root of the `turingmachines` directory.
+
+### What the Script Does:
+
+1.  **Database Setup:**
+    *   Drops and recreates the `turingcapture` and `turing_orchestrate` databases in your local PostgreSQL instance.
+    *   Installs the `pgvector` extension in both databases.
+
+2.  **Dependency Installation:**
+    *   Creates separate Python virtual environments (`venv`) for `turing-capture` and `turing-orchestrate`.
+    *   Installs all required Python packages from `requirements.txt` into their respective virtual environments.
+
+3.  **Service Startup:**
+    *   Sets the necessary environment variables (`DATABASE_URL`, `ORCHESTRATE_URL`, etc.).
+    *   Starts the `TuringCapture` service on `http://localhost:8101` in a minimized PowerShell window.
+    *   Starts the `TuringOrchestrate` service on `http://localhost:8102` in a minimized PowerShell window.
+
+4.  **Health Checks & Integration Tests:**
+    *   Performs health checks on both services to ensure they are running correctly.
+    *   Executes an end-to-end integration test:
+        *   Uploads a test image to `TuringCapture`'s `/v1/biometrics/upload` endpoint.
+        *   Verifies that the `selfie_uploaded` event is successfully sent to and processed by `TuringOrchestrate`.
+        *   Confirms the creation of a new workflow in the `TuringOrchestrate` database by querying its API.
+
+## 4. How to Run
+
+1.  Open a PowerShell terminal.
+2.  Navigate to the root of your `turingmachines` project directory.
+3.  Copy the entire content of the `setup-and-test.ps1` script.
+4.  Paste the content into your PowerShell terminal and press Enter.
+
+## 5. Verifying Success
+
+If the setup and tests are successful, you will see the following output in your terminal:
+
+```powershell
+========================================
+✓ ALL TESTS PASSED!
+========================================
+
+Services are running:
+  • TuringCapture:    http://localhost:8101/docs
+  • TuringOrchestrate: http://localhost:8102/docs
+```
+
+You can now access the OpenAPI documentation for each service at the URLs provided.
+
+## 6. Stopping the Services
+
+The services run in minimized PowerShell windows. To stop them, you can either close those windows manually or run the following command in your main PowerShell terminal:
+
+```powershell
+Get-Process | Where-Object {$_.CommandLine -like '*uvicorn*'} | Stop-Process
+```

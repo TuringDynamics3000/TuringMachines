@@ -1,56 +1,66 @@
-"""
-TuringOrchestrate™ Workflow Models
-===================================
-
-SQLAlchemy models for identity verification workflow state machine.
-
-States:
-- pending: Initial state
-- selfie_uploaded: Selfie received with liveness check
-- id_uploaded: ID document uploaded
-- verified_match: Face match successful
-- verified_no_match: Face match failed
-- complete: Workflow finalized
-"""
+# turing-orchestrate/models.py
 
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, JSON, Float, Boolean
-from sqlalchemy.ext.declarative import declarative_base
+from typing import Optional, Dict, Any
 
-Base = declarative_base()
+from sqlalchemy import String, DateTime, JSON, Boolean, Float
+from sqlalchemy.orm import Mapped, mapped_column
+
+from db import Base
 
 
 class IdentityWorkflow(Base):
-    """
-    Identity verification workflow state machine.
-    
-    Tracks the progression of an identity verification session through
-    various states, capturing all relevant data at each step.
-    """
     __tablename__ = "identity_workflow"
 
-    session_id = Column(String, primary_key=True, index=True)
-    state = Column(String, nullable=False, index=True)  # Current workflow state
-    tenant_id = Column(String, index=True)  # Tenant/customer ID
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    
-    # Workflow data (JSON)
-    data = Column(JSON, default=dict)  # Arbitrary workflow data
-    
-    # Liveness results
-    liveness_score = Column(Float)
-    is_live = Column(Boolean)
-    
-    # Match results
-    match_score = Column(Float)
-    is_match = Column(Boolean)
-    
-    # Risk assessment
-    risk_score = Column(Float)
-    risk_decision = Column(String)  # allow, deny, escalate
-    
-    def __repr__(self):
-        return f"<IdentityWorkflow(session_id={self.session_id}, state={self.state})>"
+    id: Mapped[str] = mapped_column(String, primary_key=True)  # workflow_id
+    tenant_id: Mapped[str] = mapped_column(String, index=True)
+
+    # Core state
+    state: Mapped[str] = mapped_column(String, index=True)  # pending/selfie/id/match/risk/complete
+
+    # Linked biometric sessions
+    selfie_session_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    id_session_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    # Risk/decision info
+    risk_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    risk_band: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    decision: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # allow/review/restrict/freeze
+    requires_human: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Arbitrary extra
+    data: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+
+class WorkflowEvent(Base):
+    __tablename__ = "identity_workflow_event"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workflow_id: Mapped[str] = mapped_column(String, index=True)
+    tenant_id: Mapped[str] = mapped_column(String, index=True)
+
+    event_type: Mapped[str] = mapped_column(String, index=True)
+    payload: Mapped[Dict[str, Any]] = mapped_column(JSON)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ManualDecision(Base):
+    __tablename__ = "identity_manual_decision"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    workflow_id: Mapped[str] = mapped_column(String, index=True)
+    tenant_id: Mapped[str] = mapped_column(String, index=True)
+
+    decision: Mapped[str] = mapped_column(String)  # allow/reject/escalate/close
+    reason: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    actor: Mapped[str] = mapped_column(String)  # user id / operator id
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -878,6 +878,7 @@ async def upload_biometrics(
     # Notify Orchestrate
     await notify_orchestrate("selfie_uploaded", {
         "session_id": session_id,
+        "workflow_id": session_id,  # Use session_id as workflow_id
         "tenant_id": tenant_id,
         "liveness": live,
     })
@@ -972,10 +973,13 @@ async def verify_biometrics(
 
     # Notify Orchestrate
     await notify_orchestrate("match_completed", {
+        "workflow_id": selfie_session_id,  # Use selfie session as workflow_id
+        "tenant_id": "default",  # TODO: Get from request
         "selfie_session_id": selfie_session_id,
         "id_session_id": id_session_id,
         "match": result["is_match"],
         "fused_score": result["fused_score"],
+        "raw": result,
     })
 
     return BiometricVerifyResponse(

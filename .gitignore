@@ -71,3 +71,12 @@ yarn-error.log
 dist/
 build/
 *.egg-info/
+
+# ONNX Models (large files)
+turing-capture/models/*.onnx
+
+# Test virtual environments
+turing-capture/venv_test/
+
+# Backup directories
+turing-orchestrate-old/

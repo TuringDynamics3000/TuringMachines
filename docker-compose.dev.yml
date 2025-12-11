@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database with pgvector
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: turing_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - turing_network
+
+  # TuringCapture - Identity Verification Service
+  turing-capture:
+    build:
+      context: ./turing-capture
+      dockerfile: Dockerfile
+    container_name: turing_capture
+    ports:
+      - "8101:8101"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/turingcapture
+      - ORCHESTRATE_URL=http://turing-orchestrate:8102
+      - BIOMETRIC_STORAGE_MODE=local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./turing-capture:/app
+      - capture_data:/app/data
+    networks:
+      - turing_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8101/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # TuringOrchestrate - Workflow Orchestration Service
+  turing-orchestrate:
+    build:
+      context: ./turing-orchestrate
+      dockerfile: Dockerfile
+    container_name: turing_orchestrate
+    ports:
+      - "8102:8102"
+    environment:
+      - ORCHESTRATE_DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/turing_orchestrate
+      - RISK_BRAIN_URL=http://turing-riskbrain:8103
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./turing-orchestrate:/app
+    networks:
+      - turing_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8102/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # TuringRiskBrain - Risk Assessment Service (placeholder)
+  turing-riskbrain:
+    image: nginx:alpine
+    container_name: turing_riskbrain
+    ports:
+      - "8103:80"
+    networks:
+      - turing_network
+
+volumes:
+  postgres_data:
+  capture_data:
+
+networks:
+  turing_network:
+    driver: bridge
+
+# Usage:
+# docker-compose -f docker-compose.dev.yml up -d postgres    # Start database only
+# docker-compose -f docker-compose.dev.yml up                # Start all services
+# docker-compose -f docker-compose.dev.yml down              # Stop all services
+# docker-compose -f docker-compose.dev.yml logs -f           # View logs
