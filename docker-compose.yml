@@ -1,0 +1,204 @@
+version: '3.8'
+
+services:
+  # TuringRiskBrain - Risk Assessment Engine
+  turing-riskbrain:
+    build:
+      context: ./turing-riskbrain
+      dockerfile: Dockerfile
+    container_name: turing-riskbrain
+    ports:
+      - "8000:8000"
+    environment:
+      - TURING_RISKBRAIN_LOG_LEVEL=INFO
+      - TURING_RISKBRAIN_PORT=8000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=turingmachines
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - turingmachines
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # TuringCapture - Identity & Document Capture
+  turing-capture:
+    build:
+      context: ./turing-capture
+      dockerfile: Dockerfile
+    container_name: turing-capture
+    ports:
+      - "8001:8001"
+    environment:
+      - TURING_CAPTURE_LOG_LEVEL=INFO
+      - TURING_CAPTURE_PORT=8001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - turingmachines
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # TuringOrchestrate - Flow Orchestration
+  turing-orchestrate:
+    build:
+      context: ./turing-orchestrate
+      dockerfile: Dockerfile
+    container_name: turing-orchestrate
+    ports:
+      - "8002:8002"
+    environment:
+      - TURING_ORCHESTRATE_LOG_LEVEL=INFO
+      - TURING_ORCHESTRATE_PORT=8002
+      - DB_HOST=postgres
+      - DB_PORT=5432
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - turingmachines
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # TuringSettleGuard - Settlement Authority
+  turing-settleguard:
+    build:
+      context: ./turing-settleguard
+      dockerfile: Dockerfile
+    container_name: turing-settleguard
+    ports:
+      - "8003:8003"
+    environment:
+      - TURING_SETTLEGUARD_LOG_LEVEL=INFO
+      - TURING_SETTLEGUARD_PORT=8003
+      - DB_HOST=postgres
+      - DB_PORT=5432
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - turingmachines
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: turingmachines-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=turingmachines
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - turingmachines
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: turingmachines-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - turingmachines
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus Metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: turingmachines-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - turingmachines
+    depends_on:
+      - turing-riskbrain
+      - turing-capture
+      - turing-orchestrate
+      - turing-settleguard
+
+  # Grafana Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: turingmachines-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deploy/docker/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - turingmachines
+    depends_on:
+      - prometheus
+
+  # Jaeger Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: turingmachines-jaeger
+    ports:
+      - "6831:6831/udp"
+      - "16686:16686"
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    networks:
+      - turingmachines
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  turingmachines:
+    driver: bridge
+
+# Usage:
+# docker-compose up                    # Start all services
+# docker-compose down                  # Stop all services
+# docker-compose logs -f               # View logs
+# docker-compose logs -f turing-riskbrain  # View specific service logs
+# docker-compose ps                    # List running services
