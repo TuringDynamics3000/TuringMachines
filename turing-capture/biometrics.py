@@ -29,6 +29,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Any, List
 
+import httpx
+
 from fastapi import APIRouter, HTTPException, status, UploadFile, File
 from pydantic import BaseModel, Field
 
@@ -75,6 +77,9 @@ DB_PERSIST = True  # Always persist to database
 MOBILEFACENET_THRESHOLD = float(os.getenv("MOBILEFACENET_THRESHOLD", "0.60"))
 ARCFACE_THRESHOLD = float(os.getenv("ARCFACE_THRESHOLD", "0.45"))
 LIVENESS_THRESHOLD = float(os.getenv("LIVENESS_THRESHOLD", "0.40"))
+
+# Orchestrate integration
+ORCHESTRATE_URL = os.getenv("ORCHESTRATE_URL", "http://localhost:8102")
 
 # FastAPI router
 router = APIRouter(prefix="/v1/biometrics")
@@ -561,6 +566,19 @@ async def db_save(obj):
     return await save_record(obj)
 
 
+async def notify_orchestrate(event_type: str, payload: dict):
+    """Send event notification to TuringOrchestrate."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"{ORCHESTRATE_URL}/v1/orchestrate/event",
+                json={"event": event_type, "payload": payload}
+            )
+            logger.info(f"✅ Notified Orchestrate: {event_type}")
+    except Exception as e:
+        logger.warning(f"⚠️  Failed to notify Orchestrate: {e}")
+
+
 # ---------------------------------------------------------
 #  CREATE BIOMETRIC SESSION
 # ---------------------------------------------------------
@@ -857,6 +875,20 @@ async def upload_biometrics(
 
     logger.info(f"✅ Biometric upload complete for session {session_id}")
 
+    # Notify Orchestrate
+    await notify_orchestrate("selfie_uploaded", {
+        "session_id": session_id,
+        "tenant_id": tenant_id,
+        "liveness": live,
+    })
+
+    if embedding_status == "ok":
+        await notify_orchestrate("embeddings_ready", {
+            "session_id": session_id,
+            "mobile_dim": 128,
+            "arc_dim": 512,
+        })
+
     return BiometricUploadResponse(
         session_id=session_id,
         liveness=live,
@@ -937,6 +969,14 @@ async def verify_biometrics(
     )
 
     logger.info(f"✅ Verification complete: match={result['is_match']}")
+
+    # Notify Orchestrate
+    await notify_orchestrate("match_completed", {
+        "selfie_session_id": selfie_session_id,
+        "id_session_id": id_session_id,
+        "match": result["is_match"],
+        "fused_score": result["fused_score"],
+    })
 
     return BiometricVerifyResponse(
         selfie_session_id=selfie_session_id,
