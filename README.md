@@ -407,3 +407,5 @@ Proprietary - All Rights Reserved
 ---
 
 **TuringMachines™** - Enterprise Risk Intelligence for Financial Services
+#   T u r i n g M a c h i n e s   C I / C D   A c t i v e  
+ 
