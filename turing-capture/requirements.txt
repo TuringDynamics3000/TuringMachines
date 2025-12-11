@@ -30,17 +30,13 @@ python-dateutil==2.8.2
 python-json-logger==2.0.7
 structlog==23.2.0
 
-# Testing (dev/ci only but included for convenience)
+# Testing (for CI/CD)
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
-httpx==0.25.1
 
-# Code Quality (dev/ci only)
+# Code Quality (for CI/CD)
 black==23.11.0
 flake8==6.1.0
 isort==5.12.0
 mypy==1.7.1
-
-# Documentation
-fastapi-utils==0.2.1
