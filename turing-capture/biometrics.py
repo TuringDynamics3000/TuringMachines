@@ -37,7 +37,7 @@ import numpy as np
 import cv2
 
 # Database imports
-from db import save_record, DB_MODE, async_session
+from db import save_record, DB_MODE, get_async_session
 from models import (
     BiometricSession,
     BiometricArtifact,
@@ -882,7 +882,7 @@ async def verify_biometrics(
     logger.info(f"Verifying biometrics: {selfie_session_id} vs {id_session_id}")
 
     # Load embeddings for both
-    async with async_session() as session:
+    async with get_async_session() as session:
         # Get embeddings for selfie
         selfie_mobile = await session.execute(
             f"SELECT * FROM face_embeddings WHERE session_id = '{selfie_session_id}' AND model_name = 'mobilefacenet' LIMIT 1"
