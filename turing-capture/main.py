@@ -1,39 +1,81 @@
 """
 TuringCapture™ - FastAPI Application
-Bank-grade identity verification and document capture platform
+Bank-grade identity verification and document capture platform with dual-model biometrics
 """
 
 import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Import biometrics module
-from biometrics import (
-    BiometricUploadRequest,
-    BiometricUploadResponse,
-    BiometricVerificationRequest,
-    BiometricVerificationResponse,
-    biometric_service,
-)
+# Import database
+from db import init_db, close_db
+
+# Import biometrics router
+from biometrics import router as biometrics_router
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
+
+# ============================================================================
+# LIFESPAN MANAGEMENT
+# ============================================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    FastAPI lifespan context manager
+    
+    Handles startup and shutdown events:
+    - Initialize database connection
+    - Register pgvector extension
+    - Close database connections on shutdown
+    """
+    # Startup
+    logger.info("🚀 TuringCapture™ service starting...")
+    
+    try:
+        await init_db()
+        logger.info("✅ Database initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Database initialization failed: {e}")
+        logger.warning("⚠️  Continuing without database (memory mode only)")
+    
+    logger.info("✅ Service initialized successfully")
+    
+    yield
+    
+    # Shutdown
+    logger.info("🛑 TuringCapture™ service shutting down...")
+    
+    try:
+        await close_db()
+        logger.info("✅ Database connections closed")
+    except Exception as e:
+        logger.error(f"❌ Error closing database: {e}")
+
+
+# ============================================================================
+# FASTAPI APPLICATION
+# ============================================================================
+
 app = FastAPI(
     title="TuringCapture™",
-    description="Identity & Document Capture Service - Bank-grade identity verification platform",
+    description="Identity & Document Capture Service - Bank-grade identity verification platform with dual-model biometrics",
     version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # CORS middleware
@@ -45,14 +87,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include biometrics router
+app.include_router(biometrics_router, tags=["biometrics"])
 
-# Health check models
+
+# ============================================================================
+# PYDANTIC MODELS
+# ============================================================================
+
 class HealthResponse(BaseModel):
     status: str
     service: str
     version: str
     timestamp: str
     uptime: Optional[str] = None
+    database: Optional[str] = None
 
 
 class CaptureRequest(BaseModel):
@@ -70,63 +119,80 @@ class CaptureResponse(BaseModel):
     verification_url: Optional[str] = None
 
 
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    logger.info("🚀 TuringCapture™ service starting...")
-    logger.info("✅ Service initialized successfully")
+# ============================================================================
+# CORE ENDPOINTS
+# ============================================================================
 
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("🛑 TuringCapture™ service shutting down...")
-
-
-# Root endpoint
 @app.get("/")
 async def root():
     """Root endpoint - service information"""
     return {
         "service": "TuringCapture™",
-        "description": "Identity & Document Capture Service",
+        "description": "Identity & Document Capture Service with Dual-Model Biometrics",
         "version": "2.0.0",
         "status": "operational",
+        "features": [
+            "Liveness Detection (MediaPipe FaceMesh)",
+            "Dual-Model Face Matching (MobileFaceNet + ArcFace)",
+            "Async Database Persistence (PostgreSQL + pgvector)",
+            "Flexible Storage (Memory/Local/S3)",
+        ],
         "docs": "/docs",
         "health": "/health",
     }
 
 
-# Health check endpoint
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """
     Health check endpoint for monitoring and load balancers
     Returns service status and metadata
     """
+    from db import DB_MODE, _async_engine, _sync_engine
+    
+    # Check database status
+    db_status = "ok"
+    try:
+        if DB_MODE == "async" and _async_engine:
+            db_status = "connected (async)"
+        elif DB_MODE == "sync" and _sync_engine:
+            db_status = "connected (sync)"
+        else:
+            db_status = "not initialized"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    
     return HealthResponse(
         status="ok",
         service="turing-capture",
         version="2.0.0",
         timestamp=datetime.utcnow().isoformat(),
         uptime="operational",
+        database=db_status,
     )
 
 
-# Readiness check endpoint
 @app.get("/ready")
 async def readiness_check():
     """
     Readiness check endpoint for Kubernetes
     Returns 200 when service is ready to accept traffic
     """
+    from db import _async_engine, _sync_engine
+    from biometrics import STORAGE_MODE, USE_MOCK_EMBEDDINGS
+    
+    checks = {
+        "database": "ok" if (_async_engine or _sync_engine) else "not_initialized",
+        "storage": STORAGE_MODE,
+        "embeddings": "mock" if USE_MOCK_EMBEDDINGS else "onnx",
+    }
+    
     return {
         "ready": True,
-        "checks": {"database": "ok", "storage": "ok", "external_services": "ok"},
+        "checks": checks,
     }
 
 
-# Liveness check endpoint
 @app.get("/live")
 async def liveness_check():
     """
@@ -136,21 +202,24 @@ async def liveness_check():
     return {"alive": True}
 
 
-# API v1 endpoints
+# ============================================================================
+# CAPTURE ENDPOINTS (Legacy)
+# ============================================================================
+
 @app.post("/v1/capture", response_model=CaptureResponse)
 async def create_capture(request: CaptureRequest):
     """
     Create a new identity capture session
-
+    
     This endpoint initiates an identity verification and document capture session.
     """
     logger.info(f"Creating capture session for user: {request.user_id}")
-
+    
     # Generate capture ID
     capture_id = (
         f"cap_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{request.user_id[:8]}"
     )
-
+    
     return CaptureResponse(
         capture_id=capture_id,
         status="initiated",
@@ -162,11 +231,9 @@ async def create_capture(request: CaptureRequest):
 
 @app.get("/v1/capture/{capture_id}")
 async def get_capture_status(capture_id: str):
-    """
-    Get the status of a capture session
-    """
+    """Get the status of a capture session"""
     logger.info(f"Fetching capture status for: {capture_id}")
-
+    
     return {
         "capture_id": capture_id,
         "status": "pending",
@@ -178,11 +245,9 @@ async def get_capture_status(capture_id: str):
 
 @app.post("/v1/capture/{capture_id}/document")
 async def upload_document(capture_id: str):
-    """
-    Upload a document for verification
-    """
+    """Upload a document for verification"""
     logger.info(f"Document upload for capture: {capture_id}")
-
+    
     return {
         "capture_id": capture_id,
         "document_id": f"doc_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
@@ -193,11 +258,9 @@ async def upload_document(capture_id: str):
 
 @app.post("/v1/capture/{capture_id}/biometric")
 async def upload_biometric(capture_id: str):
-    """
-    Upload biometric data for verification
-    """
+    """Upload biometric data for verification"""
     logger.info(f"Biometric upload for capture: {capture_id}")
-
+    
     return {
         "capture_id": capture_id,
         "biometric_id": f"bio_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
@@ -206,52 +269,11 @@ async def upload_biometric(capture_id: str):
     }
 
 
-# Biometric endpoints
-@app.post("/v1/biometrics/upload", response_model=BiometricUploadResponse)
-async def upload_biometric_data(request: BiometricUploadRequest):
-    """
-    Upload biometric data with liveness detection
-    
-    This endpoint receives selfie images with liveness metadata from the frontend.
-    It analyzes liveness scores, image quality, and returns verification results.
-    """
-    logger.info(f"Biometric upload for session: {request.session_id}")
-    
-    try:
-        response = biometric_service.upload_biometric(request)
-        logger.info(f"Biometric upload result: {response.status} (liveness: {response.liveness_passed})")
-        return response
-    except Exception as e:
-        logger.error(f"Biometric upload error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/v1/biometrics/verify", response_model=BiometricVerificationResponse)
-async def verify_biometric_match(request: BiometricVerificationRequest):
-    """
-    Verify biometric match (selfie vs document photo)
-    
-    This endpoint performs 1:1 face matching between the selfie and document photo.
-    It returns match scores and risk levels.
-    """
-    logger.info(f"Biometric verification for session: {request.session_id}")
-    
-    try:
-        response = biometric_service.verify_biometric(request)
-        logger.info(f"Biometric verification result: {response.passed} (match: {response.match_score:.2f})")
-        return response
-    except Exception as e:
-        logger.error(f"Biometric verification error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.post("/v1/capture/{capture_id}/verify")
 async def verify_capture(capture_id: str):
-    """
-    Verify the captured identity data
-    """
+    """Verify the captured identity data"""
     logger.info(f"Verifying capture: {capture_id}")
-
+    
     return {
         "capture_id": capture_id,
         "verification_status": "verified",
@@ -260,14 +282,24 @@ async def verify_capture(capture_id: str):
     }
 
 
-# Metrics endpoint (for Prometheus)
+# ============================================================================
+# METRICS ENDPOINT
+# ============================================================================
+
 @app.get("/metrics")
 async def metrics():
     """
-    Metrics endpoint for monitoring
+    Metrics endpoint for monitoring (Prometheus compatible)
     """
+    from biometrics import STORAGE_MODE, USE_MOCK_EMBEDDINGS
+    from db import DB_MODE
+    
     return {
         "service": "turing-capture",
+        "version": "2.0.0",
+        "storage_mode": STORAGE_MODE,
+        "db_mode": DB_MODE,
+        "mock_embeddings": USE_MOCK_EMBEDDINGS,
         "requests_total": 0,
         "requests_success": 0,
         "requests_failed": 0,
@@ -275,7 +307,16 @@ async def metrics():
     }
 
 
+# ============================================================================
+# MAIN
+# ============================================================================
+
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8101)
+    
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8101,
+        log_level="info",
+    )
