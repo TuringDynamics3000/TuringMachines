@@ -1,49 +1,61 @@
-import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/router";
 import MobileLayout from "../components/MobileLayout";
+import { startSession } from "../lib/orchestrate";
+import { setSession } from "../lib/session";
 
 export default function Home() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function begin() {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await startSession("cu-001");
+      setSession(res.session_id);
+      router.push("/id");
+    } catch (err) {
+      setError("Failed to start session. Please try again.");
+      console.error("Session start error:", err);
+      setLoading(false);
+    }
+  }
+
   return (
     <MobileLayout>
-      <div style={{ textAlign: "center" }}>
-        <h1 style={{ 
-          fontSize: "28px", 
-          marginBottom: "16px",
-          color: "#333"
-        }}>
-          TuringCapture™
+      <div className="text-center">
+        <h1 className="text-3xl font-bold mb-4 text-gray-900">
+          TuringIdentity™
         </h1>
-        <p style={{ 
-          fontSize: "16px", 
-          color: "#666",
-          marginBottom: "32px",
-          lineHeight: "1.6"
-        }}>
-          Identity Verification
+        <p className="text-lg text-gray-600 mb-2">
+          Verify Your Identity
         </p>
-        <p style={{ 
-          fontSize: "14px", 
-          color: "#888",
-          marginBottom: "32px"
-        }}>
-          Please follow the steps to verify your identity securely.
+        <p className="text-sm text-gray-500 mb-8">
+          This process takes about 60 seconds.
         </p>
-        <Link href="/id">
-          <button
-            style={{
-              width: "100%",
-              padding: "16px",
-              backgroundColor: "#0070f3",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "16px",
-              fontWeight: "600",
-              cursor: "pointer",
-            }}
-          >
-            Start ID Capture
-          </button>
-        </Link>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            {error}
+          </div>
+        )}
+
+        <button 
+          className="btn" 
+          onClick={begin}
+          disabled={loading}
+        >
+          {loading ? "Starting..." : "Start ID Capture"}
+        </button>
+
+        <div className="mt-8 text-xs text-gray-400">
+          <p>✓ Bank-grade security</p>
+          <p>✓ AI-powered verification</p>
+          <p>✓ Privacy protected</p>
+        </div>
       </div>
     </MobileLayout>
   );

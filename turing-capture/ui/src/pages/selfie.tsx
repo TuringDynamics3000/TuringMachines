@@ -3,67 +3,60 @@ import { useRouter } from "next/router";
 import MobileLayout from "../components/MobileLayout";
 import CameraCapture from "../components/CameraCapture";
 import { uploadSelfie } from "../lib/api";
+import { submitSelfie } from "../lib/orchestrate";
+import { getSession } from "../lib/session";
 
 export default function SelfiePage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
   async function handleSelfie(file: File) {
+    const session_id = getSession();
+    if (!session_id) {
+      setError("Session missing. Please start over.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const res = await uploadSelfie(file);
-      console.log("Selfie result:", res);
+      // Upload to Capture service
+      const result = await uploadSelfie(file);
+
+      // Submit to Orchestrate
+      await submitSelfie(session_id, result.metadata, result.provider_result);
+
       router.push("/review");
     } catch (err) {
       setError("Upload failed. Please try again.");
-      console.error("Upload error:", err);
+      console.error("Selfie upload error:", err);
       setLoading(false);
     }
   }
 
   return (
     <MobileLayout>
-      <h2 style={{ 
-        fontSize: "24px", 
-        marginBottom: "8px",
-        color: "#333"
-      }}>
-        Take a Selfie
-      </h2>
-      <p style={{ 
-        fontSize: "14px", 
-        color: "#666",
-        marginBottom: "16px"
-      }}>
-        Position your face in the center and ensure good lighting.
+      <h2 className="text-2xl font-semibold mb-2">Take a Selfie</h2>
+      <p className="text-sm text-gray-600 mb-6">
+        Make sure your face is clearly visible and well-lit.
       </p>
 
       {error && (
-        <div style={{ 
-          padding: "12px", 
-          backgroundColor: "#fee", 
-          borderRadius: "8px",
-          marginBottom: "16px",
-          color: "#c00"
-        }}>
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {error}
         </div>
       )}
 
-      {loading && (
-        <div style={{ 
-          padding: "16px", 
-          textAlign: "center",
-          color: "#666"
-        }}>
-          Uploading selfie...
+      {loading ? (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Uploading selfie...</p>
         </div>
+      ) : (
+        <CameraCapture onCapture={handleSelfie} />
       )}
-
-      {!loading && <CameraCapture onCapture={handleSelfie} />}
     </MobileLayout>
   );
 }
