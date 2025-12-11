@@ -11,6 +11,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+# Import biometrics module
+from biometrics import (
+    BiometricUploadRequest,
+    BiometricUploadResponse,
+    BiometricVerificationRequest,
+    BiometricVerificationResponse,
+    biometric_service,
+)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -195,6 +204,45 @@ async def upload_biometric(capture_id: str):
         "status": "uploaded",
         "timestamp": datetime.utcnow().isoformat(),
     }
+
+
+# Biometric endpoints
+@app.post("/v1/biometrics/upload", response_model=BiometricUploadResponse)
+async def upload_biometric_data(request: BiometricUploadRequest):
+    """
+    Upload biometric data with liveness detection
+    
+    This endpoint receives selfie images with liveness metadata from the frontend.
+    It analyzes liveness scores, image quality, and returns verification results.
+    """
+    logger.info(f"Biometric upload for session: {request.session_id}")
+    
+    try:
+        response = biometric_service.upload_biometric(request)
+        logger.info(f"Biometric upload result: {response.status} (liveness: {response.liveness_passed})")
+        return response
+    except Exception as e:
+        logger.error(f"Biometric upload error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/biometrics/verify", response_model=BiometricVerificationResponse)
+async def verify_biometric_match(request: BiometricVerificationRequest):
+    """
+    Verify biometric match (selfie vs document photo)
+    
+    This endpoint performs 1:1 face matching between the selfie and document photo.
+    It returns match scores and risk levels.
+    """
+    logger.info(f"Biometric verification for session: {request.session_id}")
+    
+    try:
+        response = biometric_service.verify_biometric(request)
+        logger.info(f"Biometric verification result: {response.passed} (match: {response.match_score:.2f})")
+        return response
+    except Exception as e:
+        logger.error(f"Biometric verification error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/v1/capture/{capture_id}/verify")
