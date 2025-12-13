@@ -1,0 +1,87 @@
+﻿{
+  "\": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DecisionFinalisedEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "timestamp",
+    "decision_id",
+    "correlation_id",
+    "tenant_id",
+    "subject",
+    "decision",
+    "policy",
+    "risk_summary",
+    "reason_codes",
+    "models",
+    "evidence",
+    "lineage",
+    "authority"
+  ],
+  "properties": {
+    "event_id": { "type": "string" },
+    "event_type": { "const": "decision.finalised" },
+    "timestamp": { "type": "string", "format": "date-time" },
+
+    "decision_id": { "type": "string" },
+    "correlation_id": { "type": "string" },
+    "tenant_id": { "type": "string" },
+
+    "subject": {
+      "type": "object",
+      "required": ["subject_type", "subject_id", "action"],
+      "properties": {
+        "subject_type": { "enum": ["user", "account", "transaction"] },
+        "subject_id": { "type": "string" },
+        "action": { "type": "string" }
+      }
+    },
+
+    "decision": {
+      "type": "object",
+      "required": ["outcome", "confidence", "requires_human", "can_proceed"],
+      "properties": {
+        "outcome": { "enum": ["approve", "review", "decline"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "requires_human": { "type": "boolean" },
+        "can_proceed": { "type": "boolean" }
+      }
+    },
+
+    "policy": {
+      "type": "object",
+      "required": ["jurisdiction", "policy_pack", "policy_version"]
+    },
+
+    "risk_summary": {
+      "type": "object",
+      "required": ["overall_risk", "scores"]
+    },
+
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+
+    "models": { "type": "object" },
+    "evidence": { "type": "object" },
+
+    "lineage": {
+      "type": "object",
+      "properties": {
+        "supersedes_decision_id": { "type": ["string", "null"] },
+        "overridden_by": { "type": ["string", "null"] }
+      }
+    },
+
+    "authority": {
+      "type": "object",
+      "properties": {
+        "decided_by": { "const": "turing_decision" },
+        "service_version": { "type": "string" }
+      }
+    }
+  }
+}
