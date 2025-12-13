@@ -16,7 +16,7 @@ TuringMachines™ is the multi-service financial decision OS powering:
 - **TuringPolicy™** – Multi-jurisdiction rule packs (AU, EU, GCC)
 - **TuringSettleGuard™** – Real-time settlement enforcement
 - **TuringML™** – Model registry, GPU execution, feature store
-- **TuringInvestigator™** – Case management & graph explorer
+- **TuringResolve™** – Case management & graph explorer
 - **TuringCore™** – Ledger integration (external system)
 
 All services run locally via Docker Compose. This runbook covers setup, execution, service structure, integration points, and dev workflows.
@@ -576,7 +576,7 @@ GET /v1/settle/{transaction_id}
 
 ---
 
-### 6.7 TuringInvestigator™
+### 6.7 TuringResolve™
 
 **Purpose**: Case explorer, graph viewer, human override system.
 

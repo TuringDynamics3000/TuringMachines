@@ -167,7 +167,7 @@ TuringMachines is an enterprise-grade, scalable platform for identity verificati
 - GPU support
 - A/B testing
 
-### 7. TuringInvestigator™
+### 7. TuringResolve™
 **Purpose**: Human-in-the-loop risk review and case management
 
 **Components**:
