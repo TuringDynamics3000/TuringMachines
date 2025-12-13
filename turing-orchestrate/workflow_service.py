@@ -1,4 +1,4 @@
-# turing-orchestrate/workflow_service.py
+﻿# turing-orchestrate/workflow_service.py
 
 import uuid
 import os
@@ -36,6 +36,89 @@ async def append_event(
     )
     session.add(ev)
 
+
+
+async def emit_decision_finalised(
+    *,
+    session: AsyncSession,
+    wf: IdentityWorkflow,
+    risk_result: Dict[str, Any],
+    correlation_id: Optional[str] = None
+) -> None:
+    """
+    🔒 DECISION AUTHORITY: Single source of truth for final decisions.
+    
+    This function MUST be the ONLY place in the system that emits decision.finalised.
+    
+    Guardrails:
+    - Called exactly once per workflow after risk evaluation
+    - No other service may emit decision.finalised
+    - Overrides must emit a new decision.finalised with lineage
+    """
+    decision_payload = {
+        "event_id": f"evt_decision_{uuid.uuid4()}",
+        "event_type": "decision.finalised",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        
+        "decision_id": f"dec_{wf.id}",
+        "correlation_id": correlation_id or f"corr_{uuid.uuid4()}",
+        "tenant_id": wf.tenant_id,
+        
+        "subject": {
+            "subject_type": "user",
+            "subject_id": wf.data.get("user_id"),
+            "action": wf.data.get("action", "onboarding")
+        },
+        
+        "decision": {
+            "outcome": wf.decision,              # approve | review | decline
+            "confidence": risk_result.get("confidence", 0.0),
+            "requires_human": wf.requires_human,
+            "can_proceed": wf.decision in ["approve", "review"]
+        },
+        
+        "policy": {
+            "jurisdiction": risk_result.get("jurisdiction", "AU"),
+            "policy_pack": "au-core",
+            "policy_version": risk_result.get("policy_version", "1.0.0")
+        },
+        
+        "risk_summary": {
+            "overall_risk": risk_result.get("final_risk", {}).get("band"),
+            "risk_score": wf.risk_score,
+            "scores": {
+                "fraud": risk_result.get("fraud_score"),
+                "aml": risk_result.get("aml_score"),
+                "credit": risk_result.get("credit_score"),
+                "liquidity": risk_result.get("liquidity_score")
+            }
+        },
+        
+        "reason_codes": risk_result.get("factors", []),
+        
+        "models": risk_result.get("models", {}),
+        
+        "evidence": wf.data.get("evidence_hashes", {}),
+        
+        "lineage": {
+            "supersedes_decision_id": None,
+            "overridden_by": None
+        },
+        
+        "authority": {
+            "decided_by": "turing_orchestrate",
+            "service_version": "1.0.0"
+        }
+    }
+    
+    # 🔒 SINGLE SOURCE OF TRUTH: Record to decision ledger
+    # Future: This will also publish to Kafka with one additional line
+    await append_event(
+        session,
+        wf,
+        "decision.finalised",
+        decision_payload
+    )
 
 async def get_or_create_workflow(
     session: AsyncSession,
@@ -198,6 +281,14 @@ async def handle_risk_evaluation(event: Dict[str, Any]) -> None:
 
             wf.data["risk_result"] = risk_result
             wf.updated_at = datetime.utcnow()
+
+            # 🔒 DECISION AUTHORITY: Emit the final decision
+            await emit_decision_finalised(
+                session=session,
+                wf=wf,
+                risk_result=risk_result,
+                correlation_id=event.get("correlation_id")
+            )
 
             await append_event(session, wf, "risk_evaluated", {"signals": signals, "result": risk_result})
 
