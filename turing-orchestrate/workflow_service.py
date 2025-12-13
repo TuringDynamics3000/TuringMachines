@@ -38,6 +38,28 @@ async def append_event(
 
 
 
+
+async def get_latest_decision(session: AsyncSession, workflow_id: str) -> Dict[str, Any]:
+    """
+    🔒 DECISION AUTHORITY: Get the latest decision from decision.finalised events.
+    
+    This is the ONLY way to read decisions. Never read wf.decision directly.
+    
+    Returns the latest decision.finalised event data, or None if no decision exists.
+    """
+    stmt = select(WorkflowEvent).where(
+        WorkflowEvent.workflow_id == workflow_id,
+        WorkflowEvent.event_type == "decision.finalised"
+    ).order_by(WorkflowEvent.created_at.desc())
+    
+    result = await session.execute(stmt)
+    latest_decision_event = result.scalars().first()
+    
+    if not latest_decision_event:
+        return None
+    
+    return latest_decision_event.data
+
 async def emit_decision_finalised(
     *,
     session: AsyncSession,
