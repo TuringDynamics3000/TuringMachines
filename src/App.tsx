@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import DecisionTimeline from './components/DecisionTimeline'
 import './index.css'
 
@@ -17,9 +17,9 @@ function App() {
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <h1 className="text-3xl font-bold text-gray-900">
-            🔍 Turing Investigator
+            🔍 TuringResolve
           </h1>
-          <p className="text-gray-600 mt-1">Decision Authority Timeline Viewer</p>
+          <p className="text-gray-600 mt-1">Authoritative outcomes with full history and override lineage</p>
         </div>
       </header>
 
@@ -27,7 +27,7 @@ function App() {
       <div className="max-w-4xl mx-auto px-4 py-6">
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6 mb-6">
           <label htmlFor="workflow-id" className="block text-sm font-medium text-gray-700 mb-2">
-            Workflow ID
+            Workflow ID (case or transaction)
           </label>
           <div className="flex gap-3">
             <input
@@ -42,11 +42,11 @@ function App() {
               type="submit"
               className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Load Timeline
+              Load Resolve History
             </button>
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            Enter a workflow ID to view its complete decision history
+            Enter a workflow ID to view its complete resolve history
           </p>
         </form>
 
@@ -56,7 +56,7 @@ function App() {
 
       {/* Footer */}
       <footer className="mt-12 py-6 text-center text-gray-500 text-sm">
-        <p>🔒 Decision Authority • Single Source of Truth</p>
+        <p>🔒 TuringResolve • Single Source of Truth</p>
         <p className="mt-1">Reads only from decision.finalised events</p>
       </footer>
     </div>
