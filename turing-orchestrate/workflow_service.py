@@ -360,9 +360,10 @@ async def handle_override_applied(event: Dict[str, Any]) -> None:
         original_decision_id = original_decision.data.get("decision_id")
         
         # Extract override details from payload
-        override_decision = payload.get("decision")  # approve | review | decline
+        # UI sends: new_decision, reason, authorized_by
+        override_decision = payload.get("new_decision") or payload.get("decision")  # approve | review | decline
         override_reason = payload.get("reason", "manual_override")
-        overridden_by = payload.get("overridden_by", "human_operator")
+        overridden_by = payload.get("authorized_by") or payload.get("overridden_by", "human_operator")
         
         # Update workflow state
         wf.decision = override_decision
