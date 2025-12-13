@@ -1,4 +1,4 @@
-﻿# Event Collapse Map – Decision Authority
+﻿# Event Collapse Map – Resolve Authority
 
 ## Canonical Authority
 - decision.finalised

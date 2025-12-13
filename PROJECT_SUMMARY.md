@@ -51,7 +51,7 @@ TuringMachines is an enterprise-grade, production-ready platform for financial s
   - TuringRiskBrain™ - Fused Risk Intelligence
   - TuringML™ - ML Model Lifecycle
   - TuringSettleGuard™ - Settlement Authority
-  - TuringInvestigator™ - Case Management
+  - TuringResolve™ - Case Management
   - TuringCore™ - Multi-Tenant Ledger
   - TuringPolicyPacks™ - Jurisdiction-Specific Policies
 
@@ -217,7 +217,7 @@ turingmachines/
 - `POST /v1/turing-settleguard/authorize`
 - `POST /v1/turing-settleguard/override`
 
-### 6-8. TuringML™, TuringInvestigator™, TuringCore™
+### 6-8. TuringML™, TuringResolve™, TuringCore™
 **Status**: Scaffolding created, implementation ready
 
 ---

@@ -12,7 +12,7 @@
 4. [TuringRiskBrain™](#turingriskbrain)
 5. [TuringML™](#turingml)
 6. [TuringSettleGuard™](#turingsettle guard)
-7. [TuringInvestigator™](#turinginvestigator)
+7. [TuringResolve™](#turinginvestigator)
 
 ---
 
@@ -940,7 +940,7 @@ curl -X POST http://localhost:8105/v1/settle/override \
 
 ---
 
-## TuringInvestigator™
+## TuringResolve™
 
 ### Overview
 
