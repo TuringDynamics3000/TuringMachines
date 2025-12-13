@@ -42,9 +42,9 @@ jobs:
           context: ./turing-capture
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.short_sha }}
+            ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.short_sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -53,15 +53,15 @@ jobs:
           echo "✅ Image deployed successfully!"
           echo ""
           echo "📦 Images pushed:"
-          echo "  - ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
-          echo "  - ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest"
-          echo "  - ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.short_sha }}"
+          echo "  - ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
+          echo "  - ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/${{ env.IMAGE_NAME }}:latest"
+          echo "  - ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.short_sha }}"
           echo ""
           echo "🚀 Pull command:"
-          echo "  docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
+          echo "  docker pull ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
           echo ""
           echo "🏃 Run command:"
-          echo "  docker run -p 8101:8101 ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
+          echo "  docker run -p 8101:8101 ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
 
       - name: Create deployment artifact
         run: |
@@ -72,7 +72,7 @@ jobs:
             "version": "${{ steps.version.outputs.version }}",
             "commit_sha": "${{ steps.version.outputs.short_sha }}",
             "timestamp": "${{ steps.version.outputs.timestamp }}",
-            "image": "${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}",
+            "image": "${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}",
             "registry": "${{ env.REGISTRY }}",
             "repository": "${{ github.repository }}",
             "branch": "${{ github.ref_name }}",
@@ -92,3 +92,4 @@ jobs:
         with:
           files: deployment/deploy-info.json
           generate_release_notes: true
+
