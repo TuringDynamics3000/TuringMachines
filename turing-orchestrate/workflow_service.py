@@ -293,6 +293,142 @@ async def handle_risk_evaluation(event: Dict[str, Any]) -> None:
             await append_event(session, wf, "risk_evaluated", {"signals": signals, "result": risk_result})
 
 
+
+async def handle_override_applied(event: Dict[str, Any]) -> None:
+    """
+    🔒 DECISION AUTHORITY: Handle manual override of automated decision.
+    
+    When a human operator overrides an automated decision, we MUST:
+    1. Emit a NEW decision.finalised event (never mutate the original)
+    2. Populate lineage.supersedes_decision_id to maintain audit trail
+    3. Mark the override in authority metadata
+    
+    This ensures:
+    - Regulator-grade auditability
+    - Court-defensible history
+    - Zero ambiguity about "what was decided when"
+    """
+    payload = event.get("payload", {})
+    workflow_id = payload.get("workflow_id")
+    
+    if not workflow_id:
+        raise ValueError("workflow_id is required for override.applied")
+    
+    async with async_session() as session:
+        # Get the workflow
+        stmt = select(IdentityWorkflow).where(IdentityWorkflow.id == workflow_id)
+        result = await session.execute(stmt)
+        wf = result.scalar_one_or_none()
+        
+        if not wf:
+            raise ValueError(f"Workflow {workflow_id} not found")
+        
+        # Get the ORIGINAL decision.finalised event
+        original_decision_stmt = select(WorkflowEvent).where(
+            WorkflowEvent.workflow_id == workflow_id,
+            WorkflowEvent.event_type == "decision.finalised"
+        ).order_by(WorkflowEvent.created_at.asc())
+        
+        original_result = await session.execute(original_decision_stmt)
+        original_decision = original_result.scalars().first()
+        
+        if not original_decision:
+            raise ValueError(f"No original decision found for workflow {workflow_id}")
+        
+        original_decision_id = original_decision.data.get("decision_id")
+        
+        # Extract override details from payload
+        override_decision = payload.get("decision")  # approve | review | decline
+        override_reason = payload.get("reason", "manual_override")
+        overridden_by = payload.get("overridden_by", "human_operator")
+        
+        # Update workflow state
+        wf.decision = override_decision
+        wf.requires_human = False  # Override resolves human review
+        wf.state = "override_applied"
+        wf.updated_at = datetime.utcnow()
+        
+        # 🔒 CRITICAL: Emit NEW decision.finalised with lineage
+        new_decision_id = f"dec_{wf.id}_override_{uuid.uuid4().hex[:8]}"
+        
+        override_decision_payload = {
+            "event_id": f"evt_decision_override_{uuid.uuid4()}",
+            "event_type": "decision.finalised",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            
+            "decision_id": new_decision_id,
+            "correlation_id": event.get("correlation_id") or f"corr_{uuid.uuid4()}",
+            "tenant_id": wf.tenant_id,
+            
+            "subject": {
+                "subject_type": "user",
+                "subject_id": wf.data.get("user_id"),
+                "action": wf.data.get("action", "onboarding")
+            },
+            
+            "decision": {
+                "outcome": override_decision,
+                "confidence": 1.0,  # Human override has 100% confidence
+                "requires_human": False,
+                "can_proceed": override_decision in ["approve", "review"]
+            },
+            
+            "policy": {
+                "jurisdiction": wf.data.get("jurisdiction", "AU"),
+                "policy_pack": "au-core",
+                "policy_version": "1.0.0"
+            },
+            
+            "risk_summary": {
+                "overall_risk": wf.risk_band,
+                "risk_score": wf.risk_score,
+                "scores": {}  # Original scores remain unchanged
+            },
+            
+            "reason_codes": [override_reason],
+            
+            "models": {},
+            
+            "evidence": wf.data.get("evidence_hashes", {}),
+            
+            # 🔒 LINEAGE: This is the critical part
+            "lineage": {
+                "supersedes_decision_id": original_decision_id,
+                "overridden_by": overridden_by,
+                "override_reason": override_reason,
+                "override_timestamp": datetime.utcnow().isoformat() + "Z"
+            },
+            
+            "authority": {
+                "decided_by": "human_operator",
+                "service_version": "1.0.0",
+                "override": True
+            }
+        }
+        
+        # Emit the NEW decision.finalised event
+        await append_event(
+            session,
+            wf,
+            "decision.finalised",
+            override_decision_payload
+        )
+        
+        # Also record the override.applied event for audit
+        await append_event(
+            session,
+            wf,
+            "override.applied",
+            {
+                "original_decision": original_decision.data.get("decision", {}).get("outcome"),
+                "new_decision": override_decision,
+                "reason": override_reason,
+                "overridden_by": overridden_by
+            }
+        )
+        
+        await session.commit()
+
 # ---------- dispatcher ----------
 
 EVENT_HANDLERS = {
@@ -300,6 +436,7 @@ EVENT_HANDLERS = {
     "id_uploaded": handle_id_uploaded,
     "match_completed": handle_match_completed,
     "risk_evaluate": handle_risk_evaluation,
+    "override_applied": handle_override_applied,
 }
 
 
